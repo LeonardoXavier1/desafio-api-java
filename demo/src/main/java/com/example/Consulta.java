@@ -11,7 +11,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
 public class Consulta {
-    private static final String VIA_CEP_URL = "https://viacep.com.br/ws/";
+    private static final String URL = "https://viacep.com.br/ws/";
 
     public void pesquisaCEP() {
         Scanner scanner = new Scanner(System.in);
@@ -24,7 +24,7 @@ public class Consulta {
             exibirInformacoesEndereco(enderecoCache);
         } else {
             try {
-                URL url = new URL(VIA_CEP_URL + cep + "/json/");
+                URL url = new URL(URL + cep + "/json/");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
 
@@ -60,67 +60,68 @@ public class Consulta {
         }
     }
 
-    public void pesquisaEnd() {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Digite o Estado:");
-        String estado = scanner.nextLine();
-        System.out.println("Digite a Cidade:");
-        String cidade = scanner.nextLine();
-        System.out.println("Digite o Logradouro:");
-        String logradouro = scanner.nextLine();
-    
-        String enderecoPesquisado = String.format("%s/%s/%s", estado, cidade, logradouro);
-    
-        if (Cash.enderecoExistente(enderecoPesquisado)) {
-            Endereco enderecoCache = Cash.obterEndereco(enderecoPesquisado);
-            exibirInformacoesEndereco(enderecoCache);
-        } else {
-            try {
-                URL url = new URL(VIA_CEP_URL + enderecoPesquisado + "/json/");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-    
-                int responseCode = conn.getResponseCode();
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                    String inputLine;
-                    StringBuilder response = new StringBuilder();
-    
-                    while ((inputLine = in.readLine()) != null) {
-                        response.append(inputLine);
-                    }
-                    in.close();
-    
-                    JSONParser parser = new JSONParser();
-                    JSONArray jsonResponse = (JSONArray) parser.parse(response.toString());
-    
-                    if (jsonResponse.isEmpty()) {
-                        System.out.println("Nenhum resultado encontrado para o endereço informado.");
-                    } else {
-                        for (Object obj : jsonResponse) {
-                            JSONObject jsonObject = (JSONObject) obj;
-                            String cep = (String) jsonObject.get("cep");
-                            String bairro = (String) jsonObject.get("bairro");
-                            String cidadeRetornada = (String) jsonObject.get("localidade");
-                            String estadoRetornado = (String) jsonObject.get("uf");
-    
-                            Endereco endereco = new Endereco(logradouro, bairro, cidadeRetornada, estadoRetornado);
-                            Cash.adicionarEndereco(enderecoPesquisado, endereco);
-    
-                            exibirInformacoesEndereco(endereco);
-                        }
-                    }
-                } else {
-                    System.out.println("Erro ao fazer a consulta. Código de resposta: " + responseCode);
+public void pesquisaEnd() {
+    Scanner scanner = new Scanner(System.in);
+    System.out.println("Digite o Estado:");
+    String estado = scanner.nextLine();
+    System.out.println("Digite a Cidade:");
+    String cidade = scanner.nextLine();
+    System.out.println("Digite o Logradouro:");
+    String logradouro = scanner.nextLine();
+
+    cidade = cidade.replace(" ", "%20");
+
+    String pesquisa = estado + "/" + cidade + "/" + logradouro;
+
+    if (Cash.enderecoExistente(pesquisa)) {
+        Endereco enderecoCache = Cash.obterEndereco(pesquisa);
+        exibirInformacoesEndereco(enderecoCache);
+    } else {
+        try {
+            URL url = new URL(URL + estado + "/" + cidade + "/" + logradouro + "/json/");
+            System.out.println(url);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
                 }
-            } catch (java.net.SocketException se) {
-                System.out.println("Erro de conexão com o servidor. Verifique sua conexão de rede.");
-            } catch (Exception e) {
-                e.printStackTrace();
+                in.close();
+
+                JSONParser parser = new JSONParser();
+                JSONArray jsonArray = (JSONArray) parser.parse(response.toString());
+
+                if (!jsonArray.isEmpty()) {
+                    JSONObject jsonObject = (JSONObject) jsonArray.get(0);
+
+                    String cep = (String) jsonObject.get("cep");
+                    String logradouroResult = (String) jsonObject.get("logradouro");
+                    String bairro = (String) jsonObject.get("bairro");
+                    String cidadeResult = (String) jsonObject.get("localidade");
+                    String estadoResult = (String) jsonObject.get("uf");
+
+                    Endereco endereco = new Endereco(logradouroResult, bairro, cidadeResult, estadoResult);
+                    Cash.adicionarEndereco(cep, endereco);
+
+                    exibirInformacoesEndereco(endereco);
+                } else {
+                    System.out.println("Nenhum resultado encontrado para o endereço informado.");
+                }
+            } else {
+                System.out.println("Erro ao fazer a consulta. Código de resposta: " + responseCode);
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
-    
+}
+
 
     private void exibirInformacoesEndereco(Endereco endereco) {
         System.out.println("\nResultado da consulta:");
